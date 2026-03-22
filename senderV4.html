@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<!--
+  webrtc_sender.html
+  Page d'envoi WebRTC depuis un telephone portable.
+  A heberger sur GitHub Pages (HTTPS obligatoire pour getUserMedia sur mobile).
+
+  Instructions de deploiement :
+    1. Copiez ce fichier dans votre depot GitHub (ex: averic.github.io/test-webrtc/)
+    2. Nommez-le "sender.html" ou remplacez "Index.html"
+    3. Attendez quelques secondes que GitHub Pages deploie
+    4. Sur votre telephone, ouvrez : https://averic.github.io/test-webrtc/sender.html
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#080c10">
+  <title>WebRTC - Envoi depuis telephone</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --accent:   #00c8ff;
+      --danger:   #ff5252;
+      --success:  #00e676;
+      --bg:       #080c10;
+      --surface:  rgba(255,255,255,0.05);
+      --border:   rgba(255,255,255,0.1);
+      --text:     rgba(255,255,255,0.85);
+      --muted:    rgba(255,255,255,0.4);
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      padding: 20px 16px 32px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-icon {
+      width: 42px; height: 42px;
+      background: linear-gradient(135deg, rgba(0,200,255,0.2), rgba(0,100,200,0.1));
+      border: 1px solid rgba(0,200,255,0.3);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+    .header p  { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* Mon ID */
+    #my-id-value {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 5px;
+      color: rgba(255,255,255,0.35);
+    }
+
+    /* ---- Input ID du PC ---- */
+    input[type="text"] {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 28px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-weight: 700;
+      padding: 14px 16px;
+      text-transform: uppercase;
+      letter-spacing: 8px;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    input[type="text"]::placeholder {
+      color: rgba(255,255,255,0.2);
+      letter-spacing: 4px;
+      font-size: 20px;
+    }
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,200,255,0.15);
+    }
+
+    .input-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* ---- Preview camera ---- */
+    #preview-wrap {
+      display: none;
+      margin-bottom: 14px;
+      position: relative;
+    }
+
+    #preview {
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+      display: block;
+      max-height: 220px;
+      object-fit: cover;
+    }
+
+    .preview-label {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(0,0,0,0.7);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      padding: 3px 9px;
+      border-radius: 5px;
+      text-transform: uppercase;
+    }
+
+    /* ---- Boutons ---- */
+    .btn {
+      width: 100%;
+      padding: 20px;
+      border: none;
+      border-radius: 12px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s, box-shadow 0.2s;
+      margin-bottom: 10px;
+      letter-spacing: 0.3px;
+      -webkit-appearance: none;
+    }
+    .btn:active  { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+    .btn-start {
+      background: linear-gradient(135deg, #00c8ff, #0080d0);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(0,200,255,0.3);
+    }
+    .btn-start:not(:disabled):hover {
+      box-shadow: 0 4px 28px rgba(0,200,255,0.45);
+    }
+
+    .btn-flip {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.75);
+      border: 1px solid rgba(255,255,255,0.15);
+      display: none; /* visible uniquement pendant le streaming */
+    }
+    .btn-flip:active { transform: scale(0.96); }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #ff5252, #c0392b);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(255,82,82,0.3);
+      display: none;
+    }
+
+    /* ---- Zone de statut ---- */
+    #status-area {
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 48px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .status-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+    .st-init    { background: rgba(255,255,255,0.04); color: var(--muted); border: 1px solid var(--border); }
+    .st-wait    { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.6); border: 1px solid var(--border); }
+    .st-error   { background: rgba(255,82,82,0.1);   color: #ff8888;  border: 1px solid rgba(255,82,82,0.25); }
+    .st-ok      { background: rgba(0,230,118,0.1);   color: var(--success); border: 1px solid rgba(0,230,118,0.25); }
+    .st-connect { background: rgba(0,200,255,0.08);  color: var(--accent);  border: 1px solid rgba(0,200,255,0.2); }
+
+    /* ---- Note HTTPS ---- */
+    #https-warning {
+      display: none;
+      background: rgba(255,160,0,0.1);
+      border: 1px solid rgba(255,160,0,0.3);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #ffa040;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-icon">&#128247;</div>
+    <div>
+      <h1>Envoi WebRTC</h1>
+      <p>Diffusez votre camera vers le PC</p>
+    </div>
+  </div>
+
+  <!-- Avertissement HTTPS (si besoin) -->
+  <div id="https-warning">
+    &#9888; Cette page doit etre ouverte via HTTPS.<br>
+    URL correcte : <a href="#">https://averic.github.io/test-webrtc/sender.html</a>
+  </div>
+
+  <!-- Mon propre ID PeerJS -->
+  <div class="section">
+    <div class="section-label">Mon identifiant (telephone)</div>
+    <div id="my-id-value">Connexion...</div>
+  </div>
+
+  <!-- Preview camera -->
+  <div id="preview-wrap">
+    <video id="preview" autoplay muted playsinline></video>
+    <div class="preview-label">CAMERA</div>
+  </div>
+
+  <!-- ID du PC a appeler -->
+  <div class="section">
+    <div class="section-label">Identifiant du PC (affiche dans HTML5ViewerV4)</div>
+    <input type="text"
+           id="peer-id-input"
+           placeholder="A1B2C3"
+           maxlength="6"
+           autocomplete="off"
+           autocorrect="off"
+           autocapitalize="characters"
+           spellcheck="false">
+    <div class="input-hint">6 caracteres - visible en grand sur l'ecran du PC</div>
+  </div>
+
+  <!-- Boutons -->
+  <button class="btn btn-start" id="start-btn" disabled>&#9654;&#xFE0E; Demarrer le flux</button>
+  <button class="btn btn-flip"  id="flip-btn">&#8635; Retourner la camera</button>
+  <button class="btn btn-stop"  id="stop-btn">&#9632;&#xFE0E; Arreter</button>
+
+  <!-- Statut -->
+  <div id="status-area" class="st-init">
+    <span class="status-icon">&#8987;</span>
+    <span id="status-msg">Initialisation en cours...</span>
+  </div>
+
+  <!-- PeerJS -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+    var myIdEl    = document.getElementById('my-id-value');
+    var inputEl   = document.getElementById('peer-id-input');
+    var startBtn  = document.getElementById('start-btn');
+    var flipBtn   = document.getElementById('flip-btn');
+    var stopBtn   = document.getElementById('stop-btn');
+    var previewEl = document.getElementById('preview');
+    var prevWrap  = document.getElementById('preview-wrap');
+    var statusArea = document.getElementById('status-area');
+    var statusMsg  = document.getElementById('status-msg');
+    var httpsWarn  = document.getElementById('https-warning');
+
+    var peer           = null;
+    var localStream    = null;
+    var currentCall    = null;
+    var currentFacing  = 'environment'; /* 'environment' = arriere, 'user' = avant */
+
+    /* ---- Helpers UI ---- */
+    function setStatus(icon, msg, cls) {
+      statusArea.className = cls;
+      statusArea.querySelector('.status-icon').textContent = icon;
+      statusMsg.textContent = msg;
+    }
+
+    /* ---- Verification contexte securise ---- */
+    if (!window.isSecureContext) {
+      httpsWarn.style.display = 'block';
+      setStatus('\u26a0', 'Page non securisee : getUserMedia necessite HTTPS. Ouvrez cette page depuis GitHub Pages.', 'st-error');
+    } else if (typeof Peer === 'undefined') {
+      setStatus('\u274c', 'Erreur : impossible de charger PeerJS. Verifiez votre connexion Internet.', 'st-error');
+    } else {
+      initPeer();
+    }
+
+    function initPeer() {
+      setStatus('\u23f3', 'Connexion au serveur de signalisation...', 'st-init');
+
+      peer = new Peer({
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+          ]
+        },
+        debug: 1
+      });
+
+      peer.on('open', function(id) {
+        var shortId = id.length > 8 ? id.substring(0, 8).toUpperCase() : id.toUpperCase();
+        myIdEl.textContent = shortId + '...';
+        startBtn.disabled = false;
+        setStatus('\u2713', 'Pret. Entrez l\'ID du PC et appuyez sur "Demarrer".', 'st-wait');
+      });
+
+      peer.on('error', function(err) {
+        var msg = 'Erreur PeerJS : ' + err.type;
+        if (err.type === 'peer-unavailable')
+          msg = 'PC introuvable (ID incorrect ou HTML5ViewerV4 non charge). Verifiez l\'ID et rechargez HTML5ViewerV4.';
+        else if (err.type === 'network')
+          msg = 'Erreur reseau. Verifiez votre connexion Internet.';
+        setStatus('\u274c', msg, 'st-error');
+        stopStreaming(); /* toujours nettoyer, y compris peer-unavailable */
+      });
+
+      peer.on('disconnected', function() {
+        setStatus('\u23f3', 'Reconnexion au serveur...', 'st-init');
+        setTimeout(function() {
+          if (peer && !peer.destroyed) peer.reconnect();
+        }, 2000);
+      });
+    }
+
+    /* ---- Normalisation de l'ID : PeerJS genere des IDs en minuscules ---- */
+    function normalizeId(raw) {
+      /* L'ID genere par webrtc_receiver.html est en majuscules (6 chars).
+         PeerJS stocke les IDs tels quels -> on passe en minuscules pour matcher. */
+      return raw.trim().toLowerCase();
+    }
+
+    /* ---- Demarrer ---- */
+    startBtn.addEventListener('click', function() {
+      var targetRaw = inputEl.value.trim();
+      if (!targetRaw || targetRaw.length < 4) {
+        setStatus('\u26a0', 'Entrez l\'identifiant du PC (6 caracteres affiches sur l\'ecran du PC).', 'st-error');
+        return;
+      }
+      var targetId = normalizeId(targetRaw);
+      startStreaming(targetId);
+    });
+
+    async function startStreaming(targetId) {
+      setStatus('\u23f3', 'Acces a la camera...', 'st-connect');
+
+      var videoConstraints = {
+        facingMode: { ideal: 'environment' }, /* Camera arriere sur mobile */
+        width:  { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 25, max: 30 }
+      };
+
+      /* Essai 1 : video + audio */
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: true
+        });
+      } catch (e1) {
+        /* Essai 2 : video seule (micro refuse ou non disponible) */
+        if (e1.name === 'NotAllowedError' || e1.name === 'PermissionDeniedError') {
+          setStatus('\u23f3', 'Micro non disponible, nouvel essai sans audio...', 'st-connect');
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              video: videoConstraints,
+              audio: false
+            });
+          } catch (e2) {
+            /* Essai 3 : contraintes minimales (certains appareils refusent les contraintes ideales) */
+            try {
+              localStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+              });
+            } catch (e3) {
+              var hint = ' Verifiez les permissions de camera dans Chrome : cadenas dans la barre d\'adresse -> Camera -> Autoriser, puis rechargez.';
+              setStatus('\u274c', 'Erreur camera : ' + e3.message + hint, 'st-error');
+              return;
+            }
+          }
+        } else if (e1.name === 'NotFoundError' || e1.name === 'DevicesNotFoundError') {
+          setStatus('\u274c', 'Aucune camera trouvee sur cet appareil.', 'st-error');
+          return;
+        } else if (e1.name === 'OverconstrainedError') {
+          /* Essai avec contraintes minimales */
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          } catch (e4) {
+            setStatus('\u274c', 'Erreur camera : ' + e4.message, 'st-error');
+            return;
+          }
+        } else {
+          setStatus('\u274c', 'Erreur camera : ' + e1.name + ' - ' + e1.message, 'st-error');
+          return;
+        }
+      }
+
+      /* Afficher la preview */
+      previewEl.srcObject = localStream;
+      prevWrap.style.display = 'block';
+
+      setStatus('\u23f3', 'Appel vers le PC (ID : ' + targetId.toUpperCase() + ')...', 'st-connect');
+
+      /* Appeler le pair distant (le PC) */
+      currentCall = peer.call(targetId, localStream);
+
+      if (!currentCall) {
+        setStatus('\u274c', 'Impossible d\'initier l\'appel. Verifiez l\'ID.', 'st-error');
+        stopStreaming();
+        return;
+      }
+
+      /* Timeout si pas de reponse en 30s */
+      var callTimeout = setTimeout(function() {
+        if (currentCall) {
+          setStatus('\u274c', 'Pas de reponse du PC en 30s. Verifiez que HTML5ViewerV4 est lance et que l\'ID est correct.', 'st-error');
+          stopStreaming();
+        }
+      }, 30000);
+
+      /* Le PC ne renvoie pas de flux -> call.on('stream') ne se declencherait jamais.
+         On detecte la connexion via l'etat ICE de la RTCPeerConnection sous-jacente. */
+      currentCall.on('stream', function() {
+        /* Peut se declencher si le PC renvoie un flux un jour */
+        clearTimeout(callTimeout);
+        onConnected();
+      });
+
+      /* Attendre que la peerConnection soit disponible puis ecouter l'ICE state */
+      var iceCheckInterval = setInterval(function() {
+        if (!currentCall) { clearInterval(iceCheckInterval); return; }
+        var pc = currentCall.peerConnection;
+        if (!pc) return;
+        clearInterval(iceCheckInterval);
+
+        pc.addEventListener('connectionstatechange', function() {
+          var state = pc.connectionState;
+          if (state === 'connected') {
+            clearTimeout(callTimeout);
+            onConnected();
+          } else if (state === 'failed' || state === 'closed') {
+            clearTimeout(callTimeout);
+            setStatus('\u274c', 'Connexion WebRTC echouee (state: ' + state + '). Verifiez le reseau.', 'st-error');
+            stopStreaming();
+          }
+        });
+
+        /* Fallback : ICE connection state (plus large support navigateur) */
+        pc.addEventListener('iceconnectionstatechange', function() {
+          var s = pc.iceConnectionState;
+          if ((s === 'connected' || s === 'completed') && startBtn.style.display !== 'none') {
+            /* connectionstatechange n'a peut-etre pas encore fire */
+          }
+          if (s === 'failed') {
+            clearTimeout(callTimeout);
+            setStatus('\u274c', 'ICE failed : impossible d\'etablir la connexion P2P. Etes-vous sur le meme reseau que le PC ?', 'st-error');
+            stopStreaming();
+          }
+        });
+      }, 100);
+
+      function onConnected() {
+        setStatus('\u25cf', 'Flux en cours d\'envoi vers le PC...', 'st-ok');
+        startBtn.style.display = 'none';
+        flipBtn.style.display  = 'block';
+        stopBtn.style.display  = 'block';
+        flipBtn.textContent = '\u21bb Camera ' + (currentFacing === 'environment' ? 'avant' : 'arriere');
+      }
+
+      currentCall.on('close', function() {
+        clearTimeout(callTimeout);
+        setStatus('\u25a0', 'Connexion terminee par le PC.', 'st-wait');
+        stopStreaming();
+      });
+
+      currentCall.on('error', function(err) {
+        clearTimeout(callTimeout);
+        setStatus('\u274c', 'Erreur : ' + err.message, 'st-error');
+        stopStreaming();
+      });
+    }
+
+    /* ---- Basculer camera avant / arriere ---- */
+    flipBtn.addEventListener('click', async function() {
+      if (!currentCall || !localStream) return;
+
+      var newFacing = (currentFacing === 'environment') ? 'user' : 'environment';
+      flipBtn.disabled = true;
+      setStatus('\u23f3', 'Changement de camera...', 'st-connect');
+
+      var newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: newFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (e) {
+        setStatus('\u274c', 'Impossible de changer de camera : ' + e.message, 'st-error');
+        flipBtn.disabled = false;
+        return;
+      }
+
+      var newVideoTrack = newStream.getVideoTracks()[0];
+
+      /* Remplacer la piste dans la connexion WebRTC sans renegociation */
+      var sender = currentCall.peerConnection
+        .getSenders()
+        .find(function(s) { return s.track && s.track.kind === 'video'; });
+
+      if (sender) {
+        try {
+          await sender.replaceTrack(newVideoTrack);
+        } catch (e) {
+          setStatus('\u274c', 'replaceTrack echoue : ' + e.message, 'st-error');
+          newVideoTrack.stop();
+          flipBtn.disabled = false;
+          return;
+        }
+      }
+
+      /* Arreter l'ancienne piste video et mettre a jour le stream local */
+      localStream.getVideoTracks().forEach(function(t) { t.stop(); });
+      localStream.removeTrack(localStream.getVideoTracks()[0]);
+      localStream.addTrack(newVideoTrack);
+      previewEl.srcObject = localStream;
+
+      currentFacing = newFacing;
+      flipBtn.textContent = '\u21bb Camera ' + (currentFacing === 'environment' ? 'avant' : 'arriere');
+      flipBtn.disabled = false;
+      setStatus('\u25cf', 'Flux en cours d\'envoi vers le PC...', 'st-ok');
+    });
+
+    /* ---- Arreter ---- */
+    stopBtn.addEventListener('click', stopStreaming);
+
+    function stopStreaming() {
+      if (currentCall) { try { currentCall.close(); } catch(e) {} currentCall = null; }
+      if (localStream) {
+        localStream.getTracks().forEach(function(t) { t.stop(); });
+        localStream = null;
+      }
+      previewEl.srcObject = null;
+      prevWrap.style.display = 'none';
+      startBtn.style.display = 'block';
+      flipBtn.style.display  = 'none';
+      stopBtn.style.display  = 'none';
+      currentFacing = 'environment'; /* reinitialiser pour le prochain appel */
+      if (!statusArea.classList.contains('st-error'))
+        setStatus('\u25a0', 'Arrete. Appuyez sur "Demarrer" pour recommencer.', 'st-wait');
+    }
+  </script>
+</body>
+</html>
