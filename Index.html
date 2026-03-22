@@ -56,7 +56,12 @@
 
             try {
                 // Demander l'accès à la caméra et au micro
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+				localStream = await navigator.mediaDevices.getUserMedia({ 
+					video: {
+						facingMode: "user" // Force la caméra avant pour le test
+					}, 
+					audio: true 
+				});
                 
                 // Envoyer le flux à l'ID du PC
                 peer.call(targetId, localStream);
