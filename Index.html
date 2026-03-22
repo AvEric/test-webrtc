@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebRTC Ultra-Simple</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
+        video { width: 90%; max-width: 500px; border-radius: 10px; background: #000; margin-top: 10px; }
+        .status { color: blue; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>Test WebRTC : Mobile vers PC</h2>
+    
+    <p>Mon ID : <span id="my-id" class="status">Connexion...</span></p>
+
+    <div id="sender-section">
+        <h3>1. ÉMETTEUR (Mobile)</h3>
+        <input type="text" id="receiver-id" placeholder="Entrez l'ID du PC">
+        <button onclick="startCall()">Démarrer le flux</button>
+    </div>
+
+    <hr>
+
+    <div id="receiver-section">
+        <h3>2. RÉCEPTEUR (PC)</h3>
+        <p>Attente d'un flux vidéo...</p>
+        <video id="remote-video" autoplay playsinline></video>
+    </div>
+
+    <script>
+        const peer = new Peer(); // Crée un identifiant unique via le serveur PeerJS
+        let localStream;
+
+        // Afficher mon ID quand la connexion au serveur PeerJS est prête
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+        });
+
+        // --- CÔTÉ RÉCEPTEUR (PC) ---
+        // Quand on reçoit un appel (flux vidéo)
+        peer.on('call', (call) => {
+            call.answer(); // Répondre sans envoyer de vidéo en retour
+            call.on('stream', (remoteStream) => {
+                document.getElementById('remote-video').srcObject = remoteStream;
+            });
+        });
+
+        // --- CÔTÉ ÉMETTEUR (Mobile) ---
+        async function startCall() {
+            const targetId = document.getElementById('receiver-id').value;
+            if (!targetId) return alert("Veuillez entrer l'ID du PC");
+
+            try {
+                // Demander l'accès à la caméra et au micro
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                
+                // Envoyer le flux à l'ID du PC
+                peer.call(targetId, localStream);
+                alert("Flux envoyé ! Regardez votre PC.");
+            } catch (err) {
+                console.error("Erreur accès caméra: ", err);
+                alert("Erreur : Vérifiez que vous êtes en HTTPS ou sur localhost.");
+            }
+        }
+    </script>
+</body>
+</html>
