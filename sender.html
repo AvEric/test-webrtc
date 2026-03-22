@@ -370,24 +370,56 @@
     async function startStreaming(targetId) {
       setStatus('\u23f3', 'Acces a la camera...', 'st-connect');
 
+      var videoConstraints = {
+        facingMode: { ideal: 'environment' }, /* Camera arriere sur mobile */
+        width:  { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 25, max: 30 }
+      };
+
+      /* Essai 1 : video + audio */
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' }, /* Camera arriere sur mobile */
-            width:  { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 25, max: 30 }
-          },
+          video: videoConstraints,
           audio: true
         });
-      } catch (e) {
-        var hint = '';
-        if (e.name === 'NotAllowedError')
-          hint = ' Autorisez l\'acces a la camera dans les parametres de votre navigateur.';
-        else if (e.name === 'NotFoundError')
-          hint = ' Aucune camera trouvee sur cet appareil.';
-        setStatus('\u274c', 'Erreur camera : ' + e.message + hint, 'st-error');
-        return;
+      } catch (e1) {
+        /* Essai 2 : video seule (micro refuse ou non disponible) */
+        if (e1.name === 'NotAllowedError' || e1.name === 'PermissionDeniedError') {
+          setStatus('\u23f3', 'Micro non disponible, nouvel essai sans audio...', 'st-connect');
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              video: videoConstraints,
+              audio: false
+            });
+          } catch (e2) {
+            /* Essai 3 : contraintes minimales (certains appareils refusent les contraintes ideales) */
+            try {
+              localStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: false
+              });
+            } catch (e3) {
+              var hint = ' Verifiez les permissions de camera dans Chrome : cadenas dans la barre d\'adresse -> Camera -> Autoriser, puis rechargez.';
+              setStatus('\u274c', 'Erreur camera : ' + e3.message + hint, 'st-error');
+              return;
+            }
+          }
+        } else if (e1.name === 'NotFoundError' || e1.name === 'DevicesNotFoundError') {
+          setStatus('\u274c', 'Aucune camera trouvee sur cet appareil.', 'st-error');
+          return;
+        } else if (e1.name === 'OverconstrainedError') {
+          /* Essai avec contraintes minimales */
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          } catch (e4) {
+            setStatus('\u274c', 'Erreur camera : ' + e4.message, 'st-error');
+            return;
+          }
+        } else {
+          setStatus('\u274c', 'Erreur camera : ' + e1.name + ' - ' + e1.message, 'st-error');
+          return;
+        }
       }
 
       /* Afficher la preview */
